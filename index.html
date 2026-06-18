@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Summit Team Apparel — Admin Portal</title>
+  <base href="./">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css?v=3-navscroll" />
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script defer src="crypto.js?v=11"></script>
+  <script defer src="admin.js?v=159-gdorf"></script>
+</head>
+<body>
+  <!-- LOGIN SCREEN -->
+  <div id="loginView" class="login-shell">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg viewBox="0 0 540 64" aria-hidden="true">
+          <path d="M6 44 Q14 18 38 18 Q60 18 50 38 Q42 50 22 50" fill="none" stroke="#2bb673" stroke-width="7" stroke-linecap="round"/>
+          <path d="M28 44 Q36 18 60 18 Q82 18 72 38 Q64 50 44 50" fill="none" stroke="#1c5b8a" stroke-width="7" stroke-linecap="round"/>
+          <path d="M50 44 Q58 18 82 18 Q104 18 94 38 Q86 50 66 50" fill="none" stroke="#e63027" stroke-width="7" stroke-linecap="round"/>
+          <text x="120" y="44" font-family="Bebas Neue, Impact, sans-serif" font-size="30" fill="#0d1b2a" letter-spacing="2" font-weight="400">SUMMIT•TEAM APPAREL</text>
+        </svg>
+      </div>
+      <p class="login-eyebrow">Internal Portal</p>
+      <h1>Sign in</h1>
+      <p class="login-sub">Restricted access — Summit Team Apparel staff only.</p>
+
+      <form id="loginForm" class="login-form" autocomplete="off" onsubmit="return false">
+        <label>Username
+          <input type="text" name="username" required autocomplete="username" />
+        </label>
+        <label>Password
+          <input type="password" name="password" required autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <p id="loginError" class="login-error" hidden>Incorrect username or password.</p>
+      </form>
+
+      <p class="login-foot">Forgot password? Contact <a href="mailto:admin@summitteamapparel.com">admin@summitteamapparel.com</a></p>
+    </div>
+  </div>
+
+  <!-- APP SHELL (hidden until login) -->
+  <div id="appView" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a href="#" class="sidebar-brand">
+        <svg viewBox="0 0 540 64" aria-hidden="true">
+          <path d="M6 44 Q14 18 38 18 Q60 18 50 38 Q42 50 22 50" fill="none" stroke="#2bb673" stroke-width="7" stroke-linecap="round"/>
+          <path d="M28 44 Q36 18 60 18 Q82 18 72 38 Q64 50 44 50" fill="none" stroke="#cfe6f5" stroke-width="7" stroke-linecap="round"/>
+          <path d="M50 44 Q58 18 82 18 Q104 18 94 38 Q86 50 66 50" fill="none" stroke="#e63027" stroke-width="7" stroke-linecap="round"/>
+          <text x="120" y="44" font-family="Bebas Neue, Impact, sans-serif" font-size="30" fill="#fff" letter-spacing="2" font-weight="400">SUMMIT•TEAM APPAREL</text>
+        </svg>
+      </a>
+
+      <nav class="sidebar-nav" id="sidebarNav"></nav>
+
+      <div class="sidebar-foot">
+        <div class="user-card">
+          <div class="user-avatar" id="userAvatar"></div>
+          <div>
+            <div class="user-name" id="userName"></div>
+            <div class="user-role" id="userRole"></div>
+          </div>
+        </div>
+        <button id="logoutBtn" class="logout-btn">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="content" id="content">
+      <!-- views injected by JS -->
+    </main>
+  </div>
+
+  <script>
+    // Backup submit handler — only fires if admin.js hasn't attached its handler
+    // by the time the user clicks. No proactive errors before the user does anything.
+    (function () {
+      var form = document.getElementById('loginForm');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        if (window.__asaLoginHandlerAttached) return; // real handler will run
+        e.preventDefault();
+        var err = document.getElementById('loginError');
+        if (err) {
+          err.hidden = false;
+          err.textContent = 'Login script still loading — try again in a second, or hard-refresh (Cmd+Shift+R).';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
