@@ -88,7 +88,7 @@ async function sha256Hex(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(str)));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-const REPO = { owner: 'joshnel2', repo: 'summitteamapparel-site' };
+const REPO = { owner: 'joshnel2', repo: 'demoportal' };
 
 // GitHub PAT is now stored AES-256-GCM encrypted in admin/secrets.enc.json,
 // decrypted in-browser after a successful master-password login. No PAT bytes
@@ -99,8 +99,8 @@ const REPO = { owner: 'joshnel2', repo: 'summitteamapparel-site' };
 // in-memory variable below; never persisted to localStorage in plaintext.
 let MASTER_PASSWORD = null;
 const SHARED_GH_TOKEN = ''; // legacy placeholder for code paths that still reference it
-// Wipe any previously cached plaintext token from earlier versions.
-try { localStorage.removeItem('asa_github_token'); } catch {}
+// A pasted GitHub key lives in localStorage('asa_github_token') and persists
+// across reloads so uploads stay enabled — see the Upload view's key box.
 
 (function attachLoginHandlerASAP() {
   const form = document.getElementById('loginForm');
@@ -6095,14 +6095,25 @@ function renderUpload(root) {
   // Pre-flight: is the GitHub token present? With SHARED_GH_TOKEN baked in at script load,
   // this is essentially always true. The unlock path remains as a safety net.
   const hasToken = !!(localStorage.getItem('asa_github_token') || (SESSION.secrets && SESSION.secrets.githubToken) || (typeof SHARED_GH_TOKEN !== 'undefined' && SHARED_GH_TOKEN));
-  const unlockBlock = hasToken ? '' : `
-    <div class="panel" style="background:#fff3f3;border:2px solid #7a1f1f">
-      <div class="panel-head"><h2 style="color:#7a1f1f">⚠ Upload key missing on this device</h2></div>
-      <p style="font-size:14px;color:#7a1f1f;margin:0 0 12px;font-weight:600">Uploads will fail until you unlock. Re-enter <strong>${escapeHtml(SESSION.username)}</strong>'s password below to decrypt the GitHub token from the vault.</p>
+  // Paste-a-key UI: drop in a fine-grained GitHub PAT to enable real uploads.
+  // The key lives only in this browser (localStorage) and is never committed.
+  const repoSlug = `${SESSION.repo.owner}/${SESSION.repo.repo}`;
+  const unlockBlock = hasToken ? `
+    <div class="panel" style="background:#f0fbf4;border:1px solid #16a34a">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <strong style="color:#16a34a">✓ Uploads enabled</strong>
+        <span style="color:var(--ink-dim);font-size:13px">committing to <code>${escapeHtml(repoSlug)}</code></span>
+        <button id="ghKeyRemove" class="btn btn-ghost btn-sm" style="margin-left:auto">Remove key</button>
+      </div>
+    </div>
+  ` : `
+    <div class="panel" style="background:#fff8e6;border:1px solid #d4a017">
+      <div class="panel-head"><h2 style="color:#8a6d1f">🔑 Paste a GitHub key to enable uploads</h2></div>
+      <p style="font-size:13px;color:var(--ink-dim);margin:0 0 12px">Create a fine-grained token at <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener" style="color:#1c5b8a">github.com/settings</a> with <strong>Contents: Read and write</strong> on <code>${escapeHtml(repoSlug)}</code>. Stored only in this browser; never committed.</p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="password" id="upUnlockPw" placeholder="${escapeHtml(SESSION.username)} password" style="flex:1;min-width:220px;padding:10px 14px;border:1px solid #7a1f1f;border-radius:8px;font-size:14px" />
-        <button id="upUnlockBtn" class="btn btn-primary">Unlock</button>
-        <span id="upUnlockMsg" style="font-size:13px;color:#7a1f1f;font-weight:600"></span>
+        <input type="password" id="ghKeyInput" placeholder="Paste a GitHub token (ghp_… or github_pat_…)" style="flex:1;min-width:260px;padding:10px 14px;border:1px solid #d4a017;border-radius:8px;font-size:14px" />
+        <button id="ghKeySave" class="btn btn-primary">Save key</button>
+        <span id="ghKeyMsg" style="font-size:13px;font-weight:600"></span>
       </div>
     </div>
   `;
@@ -6143,31 +6154,30 @@ function renderUpload(root) {
   `;
 
 
-  if (!hasToken) {
-    const pwEl = document.getElementById('upUnlockPw');
-    const btn = document.getElementById('upUnlockBtn');
-    const msg = document.getElementById('upUnlockMsg');
-    const doUnlock = async () => {
-      const pw = pwEl.value;
-      if (!pw) { msg.textContent = 'enter password'; return; }
-      btn.disabled = true; msg.textContent = 'unlocking…';
-      try {
-        let tok = await tryRecoverTokenFromSecrets(pw);
-        if (!tok) tok = await tryRecoverTokenFromVault(SESSION.username, pw);
-        if (!tok) throw new Error('wrong password');
-        localStorage.setItem('asa_github_token', tok);
-        if (SESSION.secrets) SESSION.secrets.githubToken = tok;
-        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); } catch {}
-        msg.textContent = '✓ unlocked';
-        showToast('✓ Upload key unlocked — you can now upload.', 'success');
-        renderUpload(root); // re-render to enable dropzone
-      } catch (e) {
-        btn.disabled = false;
-        msg.textContent = '✗ ' + (e.message || 'failed');
-      }
+  if (hasToken) {
+    const removeBtn = document.getElementById('ghKeyRemove');
+    removeBtn?.addEventListener('click', () => {
+      try { localStorage.removeItem('asa_github_token'); } catch {}
+      if (SESSION.secrets) SESSION.secrets.githubToken = null;
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); } catch {}
+      showToast('GitHub key removed.', 'info');
+      renderUpload(root); // re-render back to the paste-key state
+    });
+  } else {
+    const keyEl = document.getElementById('ghKeyInput');
+    const btn = document.getElementById('ghKeySave');
+    const msg = document.getElementById('ghKeyMsg');
+    const doSave = () => {
+      const tok = (keyEl.value || '').trim();
+      if (!tok) { msg.style.color = '#7a1f1f'; msg.textContent = 'paste a key first'; return; }
+      localStorage.setItem('asa_github_token', tok);
+      if (SESSION.secrets) SESSION.secrets.githubToken = tok;
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); } catch {}
+      showToast('✓ GitHub key saved — uploads enabled.', 'success');
+      renderUpload(root); // re-render to enable the dropzone
     };
-    btn.addEventListener('click', doUnlock);
-    pwEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doUnlock(); } });
+    btn.addEventListener('click', doSave);
+    keyEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } });
   }
 
   const drop = document.getElementById('dropZone');
